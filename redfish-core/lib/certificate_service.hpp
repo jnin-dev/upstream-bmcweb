@@ -634,7 +634,7 @@ inline void handleReplaceCertificateAction(
 }
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::match> csrMatcher;
+static std::unique_ptr<sdbusplus::bus::match_t> csrMatcher;
 /**
  * @brief Read data from CSR D-bus object and set to response
  *
@@ -871,7 +871,7 @@ inline void handleGenerateCSRAction(
                       objectPath +
                       "',"
                       "member='InterfacesAdded'");
-    csrMatcher = std::make_unique<sdbusplus::match>(
+    csrMatcher = std::make_unique<sdbusplus::bus::match_t>(
         *crow::connections::systemBus, match,
         [asyncResp, service, objectPath, certURI](sdbusplus::message_t& m) {
             timeout.cancel();

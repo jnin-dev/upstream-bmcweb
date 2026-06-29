@@ -33,7 +33,7 @@ namespace image_upload
 {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::unique_ptr<sdbusplus::match> fwUpdateMatcher;
+static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
 
 inline void uploadImageHandler(
     const crow::Request& req,
@@ -100,7 +100,7 @@ inline void uploadImageHandler(
                 fwUpdateMatcher = nullptr;
             }
         };
-    fwUpdateMatcher = std::make_unique<sdbusplus::match>(
+    fwUpdateMatcher = std::make_unique<sdbusplus::bus::match_t>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',path='/xyz/openbmc_project/software'",

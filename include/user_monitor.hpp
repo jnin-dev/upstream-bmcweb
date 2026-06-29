@@ -25,9 +25,10 @@ inline void onUserRemoved(sdbusplus::message_t& msg)
 inline void registerUserRemovedSignal()
 {
     std::string userRemovedMatchStr =
-        sdbusplus::match_rules::interfacesRemoved("/xyz/openbmc_project/user");
+        sdbusplus::bus::match::rules::interfacesRemoved(
+            "/xyz/openbmc_project/user");
 
-    static sdbusplus::match userRemovedMatch(
+    static sdbusplus::bus::match_t userRemovedMatch(
         *crow::connections::systemBus, userRemovedMatchStr, onUserRemoved);
 }
 
@@ -78,10 +79,11 @@ inline void onUserPropertiesChanged(sdbusplus::message_t& msg)
 
 inline void registerUserPropertiesChangedSignal()
 {
-    std::string matchStr = sdbusplus::match_rules::propertiesChangedNamespace(
-        "/xyz/openbmc_project/user", "xyz.openbmc_project.User.Attributes");
+    std::string matchStr =
+        sdbusplus::bus::match::rules::propertiesChangedNamespace(
+            "/xyz/openbmc_project/user", "xyz.openbmc_project.User.Attributes");
 
-    static sdbusplus::match userPropertiesChangedMatch(
+    static sdbusplus::bus::match_t userPropertiesChangedMatch(
         *crow::connections::systemBus, matchStr, onUserPropertiesChanged);
 }
 } // namespace bmcweb
