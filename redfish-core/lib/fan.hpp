@@ -17,6 +17,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/fan_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/pretty_name.hpp"
 #include "utils/sensor_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -393,6 +394,7 @@ inline void afterGetValidFanObject(
                               true);
     getFanLocation(asyncResp, fanPath, service);
     getLocationIndicatorActive(asyncResp, fanPath);
+    utils::getPrettyName(asyncResp, service, fanPath, fanId);
     fan_utils::getFanSensorObjects(
         asyncResp, fanPath,
         std::bind_front(getFanSensorsProperties, asyncResp, chassisId));

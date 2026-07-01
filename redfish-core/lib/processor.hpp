@@ -19,6 +19,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/pretty_name.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
@@ -955,6 +956,11 @@ inline void getProcessorData(
             {
                 getLocationIndicatorActive(asyncResp, objectPath);
                 getEnvironmentMetricsLink(asyncResp, processorId, objectPath);
+            }
+            else if (interface == "xyz.openbmc_project.Inventory.Item")
+            {
+                BMCWEB_LOG_DEBUG("Checking Inventory.Item");
+                utils::getPrettyName(asyncResp, serviceName, objectPath, processorId);
             }
         }
     }

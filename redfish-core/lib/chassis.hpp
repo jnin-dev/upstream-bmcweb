@@ -23,6 +23,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/pretty_name.hpp"
 
 #include <asm-generic/errno.h>
 
@@ -597,6 +598,7 @@ inline void handleChassisGetSubTree(
             });
 
         const std::string& connectionName = connectionNames[0].first;
+        utils::getPrettyName(asyncResp, connectionNames[0].first, path, chassisId);
 
         const std::vector<std::string>& interfaces2 = connectionNames[0].second;
 
