@@ -28,6 +28,7 @@ struct ResourceStatus
 {
     std::optional<bool> present;
     std::optional<bool> available;
+    std::optional<bool> enabled;
 };
 
 /**
@@ -66,9 +67,8 @@ inline void determineResourceState(
     const nlohmann::json::json_pointer& jsonPtr)
 {
     BMCWEB_LOG_DEBUG("determineResourceState");
-
-    // Check if async calls are not complete or if an error occurred
-    if (!status->present.has_value() || !status->available.has_value())
+    if (!status->present.has_value() || !status->available.has_value() ||
+        !status->enabled.has_value())
     {
         return;
     }
@@ -83,6 +83,11 @@ inline void determineResourceState(
     {
         asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
             resource::State::UnavailableOffline;
+    }
+    else if (!status->enabled.value())
+    {
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::Disabled;
     }
     else
     {
@@ -164,6 +169,9 @@ inline void getResourceState(
                       "xyz.openbmc_project.State.Decorator.Availability",
                       "Available", jsonPtr,
                       [](ResourceStatus& s, bool val) { s.available = val; });
+    getStatusProperty(asyncResp, status, service, path,
+                      "xyz.openbmc_project.Object.Enable", "Enabled", jsonPtr,
+                      [](ResourceStatus& s, bool val) { s.enabled = val; });
 }
 
 inline void afterGetResourceHealth(
