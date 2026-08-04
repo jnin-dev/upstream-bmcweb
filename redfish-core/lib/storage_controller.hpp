@@ -9,6 +9,7 @@
 #include "http_request.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/resource_utils.hpp"
 
 namespace redfish
 {
@@ -27,24 +28,10 @@ inline void populateStorageController(
     asyncResp->res.jsonValue["Id"] = controllerId;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    dbus::utility::getProperty<bool>(
-        connectionName, path, "xyz.openbmc_project.Inventory.Item", "Present",
-        // ast-grep-ignore: long-lambda
-        [asyncResp](const boost::system::error_code& ec, bool isPresent) {
-            // this interface isn't necessary, only check it
-            // if we get a good return
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("Failed to get Present property");
-                return;
-            }
-            if (!isPresent)
-            {
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Absent;
-            }
-        });
-
+    resource_utils::getResourceState(asyncResp, connectionName, path,
+                                     ""_json_pointer);
+    resource_utils::getResourceHealth(asyncResp, connectionName, path,
+                                     ""_json_pointer);
     asset_utils::getAssetInfo(asyncResp, connectionName, path, ""_json_pointer,
                               false);
 }
