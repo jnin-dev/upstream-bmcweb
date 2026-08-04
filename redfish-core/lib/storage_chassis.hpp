@@ -13,33 +13,10 @@
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/resource_utils.hpp"
 
 namespace redfish
 {
-
-inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& connectionName,
-                            const std::string& path)
-{
-    dbus::utility::getProperty<bool>(
-        connectionName, path, "xyz.openbmc_project.Inventory.Item", "Present",
-        // ast-grep-ignore: long-lambda
-        [asyncResp,
-         path](const boost::system::error_code& ec, const bool isPresent) {
-            // this interface isn't necessary, only check it if
-            // we get a good return
-            if (ec)
-            {
-                return;
-            }
-
-            if (!isPresent)
-            {
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Absent;
-            }
-        });
-}
 
 inline void getDriveState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& connectionName,
@@ -294,7 +271,8 @@ inline void addAllDriveInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else if (interface == "xyz.openbmc_project.Inventory.Item")
         {
-            getDrivePresent(asyncResp, connectionName, path);
+            resource_utils::getResourceState(asyncResp, connectionName, path,
+                                             ""_json_pointer);
         }
         else if (interface == "xyz.openbmc_project.State.Drive")
         {
