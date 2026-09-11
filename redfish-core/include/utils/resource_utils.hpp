@@ -22,6 +22,13 @@ namespace redfish
 namespace resource_utils
 {
 
+struct ResourceStatus
+{
+    std::optional<bool> present;
+    std::optional<bool> available;
+    std::optional<bool> functional;
+};
+
 /**
  * @brief Fetches resource status.health from DBus interfaces
  *
@@ -124,10 +131,65 @@ inline void getResourceState(
                         jsonPtr));
 }
 
+inline void determineResourceState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<ResourceStatus>& status, const nlohmann::json::json_pointer& jsonPtr)
+{
+    // Absent takes priority over unavailable
+    if (!status->present.value())
+    {
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::Absent;
+    }
+    else if (!status->available.value())
+    {
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::UnavailableOffline;
+    }
+    else
+    {
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::Enabled;
+    }
+}
+inline void getStatusProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<ResourceStatus>& status, const std::string& service,
+    const std::string& path, const std::string& interface,
+    const std::string& property, const nlohmann::json::json_pointer& jsonPtr,
+    std::function<void(ResourceStatus&, bool)>&& callback)
+{
+    dbus::utility::getProperty<bool>(
+        *crow::connections::systemBus, service, path, interface, property,
+        [asyncResp, status, property, jsonPtr, callback{std::move(callback)}](
+            const boost::system::error_code& ec, bool value) {
+            if (ec)
+            {
+                if (ec.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error for {}, ec {}",
+                                     property, ec.value());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                // Default to true for Enabled/OK
+                callback(*status, true);
+            }
+            else
+            {
+                callback(*status, value);
+            }
+            // Only determine Status.State once all properties have been
+            // aggregated
+            if (status->present.has_value() && status->available.has_value())
+            {
+                determineResourceState(asyncResp, status, jsonPtr);
+            }
+        });
+}
+
 /*
- * @brief Retrieves the status.state of the first service that implements
- * Inventory.Item or State.Decorator.Availability. If no service implements
- * these interfaces, it will default to Status.State Enabled
+ * @brief TODO
  *
  * @param[in] asyncResp AsyncResp object to update
  * @param[in] services Map of services to interfaces
@@ -139,20 +201,50 @@ inline void getResourceState(
     const dbus::utility::MapperServiceMap& services, const std::string& path,
     const nlohmann::json::json_pointer& jsonPtr)
 {
-    for (const auto& [serviceName, interfaces] : services)
-    {
-        for (const auto& interface : interfaces)
+    auto status = std::make_shared<ResourceStatus>();
+    const auto findService = [&services](std::string_view targetInterface)
+        -> std::optional<std::string_view> {
+        for (const auto& [serviceName, interfaces] : services)
         {
-            if (interface == "xyz.openbmc_project.Inventory.Item" ||
-                interface == "xyz.openbmc_project.State.Decorator.Availability")
+            auto it = std::ranges::find(interfaces, targetInterface);
+            if (it != interfaces.end())
             {
-                getResourceState(asyncResp, serviceName, path, jsonPtr);
-                return;
+                return serviceName;
             }
         }
+        return std::nullopt;
+    };
+    const auto presentService =
+        findService("xyz.openbmc_project.Inventory.Item");
+    const auto availableService =
+        findService("xyz.openbmc_project.State.Decorator.Availability");
+
+    if (presentService)
+    {
+        getStatusProperty(asyncResp, status,
+                std::string(*presentService), path,
+                "xyz.openbmc_project.Inventory.Item", "Present", jsonPtr,
+                [](ResourceStatus& s, bool val) { s.present = val; });
     }
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
-        resource::State::Enabled;
+    else
+    {
+        status->present = true;
+    }
+    if (availableService)
+    {
+        getStatusProperty(
+            asyncResp, status, std::string(*availableService), path,
+            "xyz.openbmc_project.State.Decorator.Availability", "Available",
+            jsonPtr, [](ResourceStatus& s, bool val) { s.available = val; });
+    }
+    else
+    {
+        status->available = true;
+    }
+    if (!presentService && !availableService)
+    {
+        determineResourceState(asyncResp, status, jsonPtr);
+    }
 }
 
 inline void afterGetResourceHealth(
